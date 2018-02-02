@@ -1,6 +1,5 @@
 var EventEmitter = require('events').EventEmitter
 var gzipMaybe = require('http-gzip-maybe')
-var gzipSize = require('gzip-size')
 var assert = require('assert')
 var path = require('path')
 var pump = require('pump')
@@ -8,15 +7,6 @@ var send = require('send')
 
 var Router = require('./lib/regex-router')
 var bankai = require('./')
-
-var files = [
-  'assets',
-  'documents',
-  'scripts',
-  'manifest',
-  'styles',
-  'service-worker'
-]
 
 module.exports = start
 
