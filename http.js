@@ -32,31 +32,8 @@ function start (entry, opts) {
   var emitter = new EventEmitter()
   var id = 0
   var state = {
-    count: compiler.metadata.count,
-    files: {},
-    sse: 0,
-    size: 0
+    sse: 0
   }
-
-  files.forEach(function (filename) {
-    state.files[filename] = {
-      name: filename,
-      progress: 0,
-      timestamp: '        ',
-      size: 0,
-      status: 'pending',
-      done: false
-    }
-  })
-
-  compiler.on('error', function (topic, sub, err) {
-    if (err.pretty) state.error = err.pretty
-    else state.error = `${topic}:${sub} ${err.message}\n${err.stack}`
-  })
-
-  compiler.on('progress', function () {
-    state.error = null
-  })
 
   compiler.on('ssr', function (result) {
     state.ssr = result
@@ -65,28 +42,8 @@ function start (entry, opts) {
   compiler.on('change', function (nodeName, edgeName, nodeState) {
     var node = nodeState[nodeName][edgeName]
     var name = nodeName + ':' + edgeName
-    var data = {
-      name: nodeName,
-      progress: 100,
-      timestamp: time(),
-      size: 0,
-      status: 'done',
-      done: true
-    }
-    state.files[nodeName] = data
-
     if (name === 'documents:index.html') emitter.emit('documents:index.html', node)
     if (name === 'styles:bundle') emitter.emit('styles:bundle', node)
-
-    // Only calculate the gzip size if there's a buffer. Apparently zipping
-    // an empty file means it'll pop out with a 20B base size.
-    if (node.buffer.length) {
-      gzipSize(node.buffer, function (err, size) {
-        if (err) data.size = node.buffer.length
-        else data.size = size
-        // if (!quiet) render()
-      })
-    }
   })
 
   router.route(/^\/manifest.json$/, function (req, res, params) {
@@ -175,7 +132,7 @@ function start (entry, opts) {
     emitter.on('documents:index.html', reloadScript)
     emitter.on('styles:bundle', reloadStyle)
     state.sse += 1
-    // if (!quiet) render()
+    compiler.emit('sse-connect')
 
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
@@ -201,7 +158,7 @@ function start (entry, opts) {
         emitter.removeListener('styles:bundle', reloadStyle)
         connected = false
         state.sse -= 1
-        // if (!quiet) render()
+        compiler.emit('sse-disconnect')
       }
     }
 
@@ -268,17 +225,4 @@ function gzip (buffer, req, res) {
   var zipper = gzipMaybe(req, res)
   pump(zipper, res)
   zipper.end(buffer)
-}
-
-function time () {
-  var date = new Date()
-  var hours = numPad(date.getHours())
-  var minutes = numPad(date.getMinutes())
-  var seconds = numPad(date.getSeconds())
-  return `${hours}:${minutes}:${seconds}`
-}
-
-function numPad (num) {
-  if (num < 10) num = '0' + num
-  return num
 }
