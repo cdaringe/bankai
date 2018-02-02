@@ -7,7 +7,6 @@ var pump = require('pump')
 var send = require('send')
 
 var Router = require('./lib/regex-router')
-var ui = require('./lib/ui')
 var bankai = require('./')
 
 var files = [
@@ -27,7 +26,6 @@ function start (entry, opts) {
   assert.equal(typeof entry, 'string', 'bankai/http: entry should be type string')
   assert.equal(typeof opts, 'object', 'bankai/http: opts should be type object')
 
-  var quiet = !!opts.quiet
   opts = Object.assign({ reload: true }, opts)
   var compiler = bankai(entry, opts)
   var router = new Router()
@@ -51,16 +49,13 @@ function start (entry, opts) {
     }
   })
 
-  if (!quiet) var render = ui(state)
   compiler.on('error', function (topic, sub, err) {
     if (err.pretty) state.error = err.pretty
     else state.error = `${topic}:${sub} ${err.message}\n${err.stack}`
-    if (!quiet) render()
   })
 
   compiler.on('progress', function () {
     state.error = null
-    if (!quiet) render()
   })
 
   compiler.on('ssr', function (result) {
@@ -89,10 +84,9 @@ function start (entry, opts) {
       gzipSize(node.buffer, function (err, size) {
         if (err) data.size = node.buffer.length
         else data.size = size
-        if (!quiet) render()
+        // if (!quiet) render()
       })
     }
-    if (!quiet) render()
   })
 
   router.route(/^\/manifest.json$/, function (req, res, params) {
@@ -181,7 +175,7 @@ function start (entry, opts) {
     emitter.on('documents:index.html', reloadScript)
     emitter.on('styles:bundle', reloadStyle)
     state.sse += 1
-    if (!quiet) render()
+    // if (!quiet) render()
 
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
@@ -207,7 +201,7 @@ function start (entry, opts) {
         emitter.removeListener('styles:bundle', reloadStyle)
         connected = false
         state.sse -= 1
-        if (!quiet) render()
+        // if (!quiet) render()
       }
     }
 
@@ -261,6 +255,7 @@ function start (entry, opts) {
 
   // TODO: move all UI code out of this file
   handler.state = state
+  handler.compiler = compiler
   return handler
 
   // Return a handler to listen.
